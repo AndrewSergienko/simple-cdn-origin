@@ -30,4 +30,3 @@ class FileSavedStatus(FileStatus):
 class FileReplicatedStatus(FileStatus):
     from_server: Server
     to_server: Server
-
