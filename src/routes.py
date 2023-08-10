@@ -34,7 +34,7 @@ class Handlers:
         if data["type"] == "saved":
             server_data = data["server"]
             server = Server(server_data["name"], server_data["ip"], server_data["zone"])
-            status = FileSavedStatus(data["duration"], data["time"], file_info, server)
+            status = FileSavedStatus(file_info, data["duration"], data["time"], server)
         else:
             from_server_data = data["from_server"]
             from_server = Server(
@@ -47,7 +47,7 @@ class Handlers:
                 to_server_data["name"], to_server_data["ip"], to_server_data["zone"]
             )
             status = FileReplicatedStatus(
-                data["duration"], data["time"], file_info, from_server, to_server
+                file_info, data["duration"], data["time"], from_server, to_server
             )
         await services.send_file_status(self.context, status)
 
