@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from src.domain import FileStatus, FileInfo
+from src.domain import FileInfo, FileStatus
 
 
 class AWebSocketManager(ABC):

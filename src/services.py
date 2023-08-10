@@ -1,5 +1,5 @@
 from src.abstract import AContext
-from src.domain import FileStatus, FileInfo
+from src.domain import FileInfo, FileStatus
 
 
 async def subscribe_to_file_status(context: AContext, file: FileInfo, *args, **kwargs):
@@ -11,7 +11,9 @@ async def subscribe_to_file_status(context: AContext, file: FileInfo, *args, **k
     await context.sockets.subscribe_to_file_status(file, *args, **kwargs)
 
 
-async def unsubscribe_to_file_status(context: AContext, file: FileInfo, *args, **kwargs):
+async def unsubscribe_to_file_status(
+    context: AContext, file: FileInfo, *args, **kwargs
+):
     """
     Unsubscribe the user to file status updates
     :param context: Context object
