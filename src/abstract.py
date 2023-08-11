@@ -1,19 +1,17 @@
 from abc import ABC, abstractmethod
 
-from src.domain import FileInfo, FileStatus
-
 
 class AWebSocketManager(ABC):
     @abstractmethod
-    async def send_file_status(self, status: FileStatus):
+    async def send_file_status(self, status: dict):
         pass
 
     @abstractmethod
-    async def subscribe_to_file_status(self, file: FileInfo, *args, **kwargs):
+    async def subscribe_to_file_status(self, file_name: str, *args, **kwargs):
         pass
 
     @abstractmethod
-    async def unsubscribe_to_file_status(self, websocket, file: FileInfo):
+    async def unsubscribe_to_file_status(self, file_name: str):
         pass
 
 
