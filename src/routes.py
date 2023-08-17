@@ -1,3 +1,6 @@
+import re
+import socket
+
 import aiofiles
 import aiohttp
 from aiohttp import WSCloseCode, web
@@ -13,6 +16,7 @@ def get_handlers(context: AContext) -> list[RouteDef]:
         web.get("/", handlers.index),
         web.get("/ws/", handlers.websocket_handler),
         web.post("/status/", handlers.file_status_handler),
+        web.post("/files/", handlers.download_file_handler),
     ]
 
 
@@ -36,7 +40,29 @@ class Handlers:
         await services.send_file_status(self.context, data)
         return web.Response(status=200)
 
+    async def download_file_handler(self, request: web.Request):
+        """Determine the nearest server to the file and redirect the request to it"""
+        data = await request.json()
+        link = data.get("link")
+        if not link:
+            raise web.HTTPBadRequest(text="link is required.")
+
+        # extracting host from the URL
+        host = re.search(r"^(?:https?://)?([a-zA-Z0-9.-]+)", link).groups()[0]
+        # get the server with the lowest ping to a host
+        servers_ping = await services.servers_ping_to_host(self.context, host)
+        min_ping_server = min(servers_ping, key=servers_ping.get)
+        # start the file upload to the file server
+        download_file_response = await services.send_download_link(
+            self.context, min_ping_server, link
+        )
+        return web.json_response(download_file_response, status=200)
+
     async def websocket_handler(self, request: web.Request):
+        """
+        WebSocket handler for user connection.
+        Real-time updates about the uploaded file are sent over the WebSocket.
+        """
         ws = web.WebSocketResponse()
         # prepare the WebSocket for connection
         await ws.prepare(request)
