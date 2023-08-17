@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Simple CDN</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-4bw+/aepP/YC94hEpVNVgiZdgIC5+VKNBQNGCHeKRQN+PtmoHDEXuppvnDJzQIu9" crossorigin="anonymous">
+</head>
+<body>
+<div class="container" style="margin-top: 50px">
+    <div style="display: flex; gap: 5px">
+        <div class="mb-3">
+            <label for="link-input" class="form-label">Link to file</label>
+            <input style="width: 500px" class="form-control" id="link-input" placeholder="https://storage.com/file.bin">
+        </div>
+        <div style="padding-top: 32px">
+            <button style="height: 38px" type="button" class="btn btn-secondary" id="upload-button" onclick="startProcess()">Upload
+            </button>
+            <button style="height: 38px" type="button" class="btn btn-primary" id="download-button" disabled>Download</button>
+        </div>
+    </div>
+    <div>
+        <h3>Logs:</h3>
+        <ul class="list-group" id="logs">
+        </ul>
+    </div>
+</div>
+<script>
+    let fileLink = undefined
+    let fileName = undefined
+
+    document.getElementById("download-button").addEventListener("click", function(event){
+        event.preventDefault()
+        downloadFile()
+    });
+
+    async function sendFileLink() {
+        let link = document.querySelector("#link-input").value
+        return await fetch("http://origin.andrewser.pp.ua/files/", {
+            method: "POST",
+            body: JSON.stringify({"link": link})
+        })
+    }
+
+    function WebSocketConnect(fileName, originUrl) {
+        let websocket = new WebSocket(`ws://origin.andrewser.pp.ua:8080/ws/?file_name=${fileName}&origin_url=${originUrl}`)
+        websocket.onmessage = (event) => receiveMessage(event)
+        return websocket
+    }
+
+    function receiveMessage(eventData) {
+        let data = JSON.parse(eventData.data)
+        if(data["type"] === "saved"){
+            let text = `${data["server"]["name"]} ${data["server"]["zone"]} ${data["server"]["ip"]}`
+            addLogTimeRecord("bg-primary", "Saved", text,  data)
+            fileLink = data["file_url"]
+            fileName = data["file_info"]["name"] + data["file_info"]["file_type"]
+        }
+        else if(data["type"] === "replicated"){
+            const server1Text = `${data["from_server"]["name"]} ${data["from_server"]["zone"]}`
+            const server2Text = `${data["to_server"]["name"]} ${data["to_server"]["zone"]} ${data["to_server"]["ip"]}`
+            let text = `${server1Text} > ${server2Text}`
+            addLogTimeRecord("bg-success", "Replicated", text, data)
+            if(data["is_last_server"]){
+                eventData.target.send("close")
+                eventData.target.close()
+                document.querySelector("#download-button").removeAttribute("disabled")
+            }
+        }
+    }
+    async function startProcess() {
+        document.querySelector("#upload-button").setAttribute("disabled", "")
+        let downloadResponse = await sendFileLink()
+        addLogRecord("Start of file download")
+        let downloadJson = await downloadResponse.json()
+        let websocket = WebSocketConnect(downloadJson["file_name"], downloadJson["origin_url"])
+    }
+    async function downloadFile(){
+        const startTime = performance.now(); // Отримати час початку завантаження
+        addLogRecord("Start download file from server")
+        try {
+            const response = await fetch(fileLink);
+            if (response.ok) {
+                const blob = await response.blob();
+
+                const blobURL = URL.createObjectURL(blob);
+
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = blobURL;
+                a.download = fileName;
+                document.body.appendChild(a);
+
+                a.click();
+
+                URL.revokeObjectURL(blobURL);
+
+                const endTime = performance.now();
+
+                let server_resp = await fetch("http://files.andrewser.pp.ua")
+                let server = await server_resp.json()
+
+                const duration = parseInt((endTime - startTime) / 1000);
+                const data = {
+                    "time": formatNowDateTime(),
+                    "duration": duration
+                }
+
+                addLogTimeRecord("bg-danger", "Saved", `${server["name"]} ${server["zone"]} ${server["ip"]}`, data)
+            } else {
+            }
+        } catch (error) {
+            console.error('Fetch error:', error);
+        }
+    }
+    function addLogTimeRecord(badgeClass, badgeName, text, data){
+        let listItem = document.createElement("li");
+        listItem.className = "list-group-item";
+        let divContainer = document.createElement("div");
+        divContainer.className = "d-flex justify-content-between";
+        let pElem1 = document.createElement("p")
+        pElem1.style.margin = "0"
+        pElem1.className = "flex-item d-flex"
+        let style = "display: flex; align-items: center; margin-right: 5px"
+        pElem1.innerHTML = `<div class="badge ${badgeClass} text-wrap" style="${style}">${badgeName}</div><div>${text}</div>`
+
+        let pElem2 = document.createElement("p")
+        pElem2.style.margin = "0"
+        pElem2.className = "flex-item"
+        pElem2.textContent = `${data["duration"]} sec | ${data["time"]}`
+
+        divContainer.appendChild(pElem1);
+        divContainer.appendChild(pElem2);
+        listItem.appendChild(divContainer)
+        let myList = document.querySelector("#logs");
+        let firstListItem = myList.firstChild;
+        myList.insertBefore(listItem, firstListItem);
+    }
+
+    function addLogRecord(text){
+        let pElem1 = document.createElement("div")
+        pElem1.className = "list-group-item"
+        pElem1.textContent = text
+        let myList = document.querySelector("#logs");
+        let firstListItem = myList.firstChild;
+
+        if (firstListItem) {
+            myList.insertBefore(pElem1, firstListItem);
+        } else {
+            myList.appendChild(pElem1);
+        }
+    }
+    function formatNowDateTime() {
+        const date = new Date();
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+
+        return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
+    }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js" integrity="sha384-HwwvtgBNo3bZJJLYd8oVXjrBZt8cqVSpeBNS5n7C8IVInixGAoxmnlMuBnhbgrkm" crossorigin="anonymous"></script>
+</body>
+</html>
