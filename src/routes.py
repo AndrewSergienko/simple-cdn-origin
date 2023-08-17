@@ -1,5 +1,4 @@
 import re
-import socket
 
 import aiofiles
 import aiohttp

@@ -2,9 +2,9 @@ import json
 from collections import defaultdict
 from pathlib import Path
 
-from aiohttp import web, ClientSession
+from aiohttp import ClientSession, web
 
-from src.abstract import AWebSocketManager, AServersManager, AWebClient
+from src.abstract import AServersManager, AWebClient, AWebSocketManager
 
 
 class WebSocketManager(AWebSocketManager):
@@ -50,7 +50,7 @@ class WebClient(AWebClient):
 
     async def send_download_link(self, url: str, link: str):
         async with ClientSession() as session:
-            data = {"link": link}
-            async with session.post(f"{url}/files/", data=json.dumps(data)) as resp:
+            data = json.dumps({"link": link})
+            async with session.post(f"{url}/files/", data=data) as resp:
                 if resp.status == 200:
                     return await resp.json()

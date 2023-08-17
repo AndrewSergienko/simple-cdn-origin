@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from src.abstract import AContext
-from src.adapters import WebSocketManager, WebClient, ServersManager
+from src.adapters import ServersManager, WebClient, WebSocketManager
 
 
 class Context(AContext):
